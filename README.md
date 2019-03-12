@@ -14,7 +14,7 @@ The statistic of the data is shown below:
 The log mel spectrogram and strongly labelled onset and offset events are shown below:
 
 ![alt text](appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png width="400")
-<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png" width="400">
+<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png" width="700">
 
 ## Run the code
 
