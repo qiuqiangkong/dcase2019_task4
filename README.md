@@ -104,7 +104,7 @@ Validation result:
 
 **Visualization of prediction**
 
-![alt text](appendixes/Y-0CamVQdP_Y_0.000_6.000_ref.png width="400")
+![alt text](appendixes/Y-0CamVQdP_Y_0.000_6.000_ref.png width="700")
 
 ## Summary
 This codebase provides a convolutional neural network (CNN) for DCASE 2019 challenge Task 4 Sound event detection in domestic environments. 
