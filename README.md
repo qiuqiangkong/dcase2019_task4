@@ -11,7 +11,7 @@ The statistic of the data is shown below:
 |:----:|:---------------------------:|:----------------------------------:|:--------------------------:|:----------------:|
 | Num. |             1578            |                2045                |            14412           |       1168       |
 
-The log mel spectrogram of the scenes are shown below:
+The log mel spectrogram and strongly labelled onset and offset events are shown below:
 
 ![alt text](appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png)
 
@@ -92,12 +92,13 @@ Model saved to /vol/vssp/msos/qk/workspaces/dcase2019_task4/models/main/logmel_6
 </pre>
 
 Validation result:
-|                                       | Audio tagging mAP | Event based F score (macro average) | Segment based F score (micro average) |
-|:-------------------------------------:|:-----------------:|:-----------------------------------:|:-------------------------------------:|
-|            Official result            |         -         |                23.5%                |                 54.7%                 |
-| Weak labeled audio with clipwise loss |       78.8%       |                22.4%                |                 61.3%                 |
-|   Synthetic audio with clipwise loss  |       56.4%       |                12.3%                |                 38.6%                 |
-|  Synthetic audio with framewise loss  |       50.8%       |                11.7%                |                 40.9%                 |
+
+|                                                 | Audio tagging mAP |  Event based F score (macro average)  | Segment based F score (micro average) |
+|:-----------------------------------------------:|:-----------------:|:-------------------------------------:|:-------------------------------------:|
+| <span style="color:grey">Official result</span> |         -         | <span style="color:grey">23.5%</span> | <span style="color:grey">54.7%</span> |
+|      Weak labeled audio with clipwise loss      |       78.8%       |                 22.4%                 |                 61.3%                 |
+|        Synthetic audio with clipwise loss       |       56.4%       |                 12.3%                 |                 38.6%                 |
+|       Synthetic audio with framewise loss       |       50.8%       |                 11.7%                 |                 40.9%                 |
 
 
 **Visualization of prediction**
