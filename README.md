@@ -91,11 +91,11 @@ Model saved to /vol/vssp/msos/qk/workspaces/dcase2019_task4/models/main/logmel_6
 ...
 </pre>
 
-Validation result:dd
+Validation result:
 
 |                                                 | Audio tagging mAP |  Event based F score (macro average)  | Segment based F score (micro average) |
 |:-----------------------------------------------:|:-----------------:|:-------------------------------------:|:-------------------------------------:|
-| <font color="red">Status: **Not yet implemented**</font> |         -         | <span style="color:grey">23.5%</span> | <span style="color:grey">54.7%</span> |
+| <span style="color:grey">Official result</span> |         -         | <span style="color:grey">23.5%</span> | <span style="color:grey">54.7%</span> |
 |      Weak labeled audio with clipwise loss      |       78.8%       |                 22.4%                 |                 61.3%                 |
 |        Synthetic audio with clipwise loss       |       56.4%       |                 12.3%                 |                 38.6%                 |
 |       Synthetic audio with framewise loss       |       50.8%       |                 11.7%                 |                 40.9%                 |
