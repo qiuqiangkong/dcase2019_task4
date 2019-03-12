@@ -52,7 +52,7 @@ def train(args):
     frames_per_second = config.frames_per_second
     classes_num = config.classes_num
     max_iteration = 10      # Number of mini-batches to evaluate on training data
-    reduce_lr = True       
+    reduce_lr = False       
     
     # Paths
     if mini_data:

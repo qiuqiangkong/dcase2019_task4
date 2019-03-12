@@ -186,7 +186,8 @@ class Evaluator(object):
             axs[0].matshow(output_dict['feature'][n].T, origin='lower', aspect='auto', cmap='jet')
             if 'strong_target' in output_dict.keys():
                 axs[1].matshow(output_dict['strong_target'][n].T, origin='lower', aspect='auto', cmap='jet')
-            axs[2].matshow(output_dict['framewise_output'][n].T, origin='lower', aspect='auto', cmap='jet')
+            masked_framewise_output = output_dict['framewise_output'][n] * output_dict['clipwise_output'][n]
+            axs[2].matshow(masked_framewise_output.T, origin='lower', aspect='auto', cmap='jet')
             axs[3].matshow(event_prediction.T, origin='lower', aspect='auto', cmap='jet')
             
             axs[0].set_title('Log mel spectrogram', color='r')
