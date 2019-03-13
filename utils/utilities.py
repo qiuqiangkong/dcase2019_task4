@@ -109,7 +109,7 @@ def load_scalar(scalar_path):
     
     
 def scale(x, mean, std):
-    return x * std + mean
+    return (x - mean) / std
     
     
 def read_metadata(metadata_path):
