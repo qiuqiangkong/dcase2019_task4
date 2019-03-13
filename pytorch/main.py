@@ -52,7 +52,7 @@ def train(args):
     frames_per_second = config.frames_per_second
     classes_num = config.classes_num
     max_iteration = 10      # Number of mini-batches to evaluate on training data
-    reduce_lr = False       
+    reduce_lr = True
     
     # Paths
     if mini_data:
@@ -119,7 +119,7 @@ def train(args):
     
     # Optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999),
-        eps=1e-08, weight_decay=0.)
+        eps=1e-08, weight_decay=0., amsgrad=True)
 
     # Data generator
     data_generator = DataGenerator(
