@@ -121,7 +121,7 @@ def events_to_target(events, frames_num, classes_num, frames_per_second, lb_to_i
 
  
 def calculate_feature_for_all_audio_files(args):
-    '''Calculate feature for each audio file and write out to hdf5. 
+    '''Calculate feature of audio files and write out features to a hdf5 file. 
     
     Args:
       dataset_dir: string
