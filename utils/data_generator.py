@@ -126,6 +126,11 @@ class DataGenerator(object):
     def generate_validate(self, data_type, max_iteration=None):
         '''Generate mini-batch data for validation. 
         
+        Args:
+          data_type: 'train' | 'validate'
+          max_iteration: None | int, use maximum iteration of partial data for
+              fast evaluation
+        
         Returns:
           dict containing audio_name, feature, weak_target 
               and strong_target
