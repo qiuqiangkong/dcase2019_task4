@@ -98,7 +98,7 @@ def labels_to_target(labels, classes_num, lb_to_idx):
 
 
 def events_to_target(events, frames_num, classes_num, frames_per_second, lb_to_idx):
-    '''Convert events to strongly labelled matrix. 
+    '''Convert events to strongly labelled matrix: (frames_num, classes_num)
     E.g., ['Dog', 'Blender'] -> np.array(
         [[0, 0, ..., 0], 
          [0, 1, ..., 0], 
