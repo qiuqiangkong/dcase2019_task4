@@ -30,7 +30,7 @@ def train(args):
       dataset_dir: string, directory of dataset
       workspace: string, directory of workspace
       data_type: 'train_weak' | 'train_synthetic'
-      model_name: string, e.g. 'Cnn_9layers'
+      model_type: string, e.g. 'Cnn_9layers'
       loss_type: string, e.g. 'clipwise_binary_crossentropy'
       batch_size: int
       cuda: bool
@@ -41,7 +41,7 @@ def train(args):
     dataset_dir = args.dataset_dir
     workspace = args.workspace
     data_type = args.data_type
-    model_name = args.model_name
+    model_type = args.model_type
     loss_type = args.loss_type
     batch_size = args.batch_size
     cuda = args.cuda and torch.cuda.is_available()
@@ -51,7 +51,7 @@ def train(args):
     mel_bins = config.mel_bins
     frames_per_second = config.frames_per_second
     classes_num = config.classes_num
-    max_iteration = 10      # Number of mini-batches to evaluate on training data
+    max_iteration = None      # Number of mini-batches to evaluate on training data
     reduce_lr = True
     
     # Paths
@@ -88,15 +88,15 @@ def train(args):
     validate_metadata_path = os.path.join(dataset_dir, 'metadata', 'validation', 
         '{}.csv'.format(validate_relative_name))
         
-    models_dir = os.path.join(workspace, 'models', filename, 
+    checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
         '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
-    create_folder(models_dir)
+    create_folder(checkpoints_dir)
     
     temp_submission_path = os.path.join(workspace, '_temp', 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
         '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
-        '_submission.csv')
+        '_temp_submission.csv')
     create_folder(os.path.dirname(temp_submission_path))
 
     logs_dir = os.path.join(args.workspace, 'logs', filename, args.mode, 
@@ -109,7 +109,7 @@ def train(args):
     scalar = load_scalar(scalar_path)
     
     # Model
-    Model = eval(model_name)
+    Model = eval(model_type)
     model = Model(classes_num, strong_target_training)
     
     if cuda:
@@ -132,7 +132,8 @@ def train(args):
     evaluator = Evaluator(
         model=model, 
         data_generator=data_generator, 
-        cuda=cuda)
+        cuda=cuda, 
+        verbose=False)
     
     train_bgn_time = time.time()
     iteration = 0
@@ -148,19 +149,17 @@ def train(args):
 
             train_fin_time = time.time()
 
-            '''
-            # Uncomment for evaluate on training data
             evaluator.evaluate(
                 data_type='train', 
                 metadata_path=train_metadata_path, 
                 submission_path=temp_submission_path, 
-                max_iteration=None)
-            '''
+                max_iteration=max_iteration)
+            
             evaluator.evaluate(
                 data_type='validate', 
                 metadata_path=validate_metadata_path, 
                 submission_path=temp_submission_path, 
-                max_iteration=None)
+                max_iteration=max_iteration)
 
             train_time = train_fin_time - train_bgn_time
             validate_time = time.time() - train_fin_time
@@ -179,7 +178,7 @@ def train(args):
                 'optimizer': optimizer.state_dict()}
 
             checkpoint_path = os.path.join(
-                models_dir, 'md_{}_iters.pth'.format(iteration))
+                checkpoints_dir, '{}_iterations.pth'.format(iteration))
                 
             torch.save(checkpoint, checkpoint_path)
             logging.info('Model saved to {}'.format(checkpoint_path))
@@ -220,7 +219,7 @@ def inference_validation(args):
       dataset_dir: string, directory of dataset
       workspace: string, directory of workspace
       data_type: 'train_weak' | 'train_synthetic'
-      model_name: string, e.g. 'Cnn_9layers'
+      model_type: string, e.g. 'Cnn_9layers'
       loss_type: string, e.g. 'clipwise_binary_crossentropy'
       batch_size: int
       cuda: bool
@@ -231,7 +230,7 @@ def inference_validation(args):
     dataset_dir = args.dataset_dir
     workspace = args.workspace
     data_type = args.data_type
-    model_name = args.model_name
+    model_type = args.model_type
     loss_type = args.loss_type
     iteration = args.iteration
     batch_size = args.batch_size
@@ -275,9 +274,9 @@ def inference_validation(args):
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
         'train/weak.h5')
         
-    checkoutpoint_path = os.path.join(workspace, 'models', filename, 
+    checkoutpoint_path = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 'md_{}_iters.pth'.format(iteration))
+        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), '{}_iterations.pth'.format(iteration))
 
     submission_path = os.path.join(workspace, 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
@@ -294,7 +293,7 @@ def inference_validation(args):
     scalar = load_scalar(scalar_path)
 
     # Load model
-    Model = eval(model_name)
+    Model = eval(model_type)
     model = Model(classes_num, strong_target_training)
     checkpoint = torch.load(checkoutpoint_path)
     model.load_state_dict(checkpoint['model'])
@@ -313,7 +312,8 @@ def inference_validation(args):
     evaluator = Evaluator(
         model=model, 
         data_generator=data_generator, 
-        cuda=cuda)
+        cuda=cuda, 
+        verbose=True)
 
     evaluator.evaluate(
         data_type='validate', 
@@ -337,7 +337,7 @@ if __name__ == '__main__':
     parser_train.add_argument('--workspace', type=str, required=True)
     parser_train.add_argument('--data_type', type=str, required=True, 
         choices=['train_weak', 'train_synthetic'])
-    parser_train.add_argument('--model_name', type=str, required=True)
+    parser_train.add_argument('--model_type', type=str, required=True)
     parser_train.add_argument('--loss_type', type=str, required=True)
     parser_train.add_argument('--batch_size', type=int, required=True)
     parser_train.add_argument('--cuda', action='store_true', default=False)
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     parser_inference_validation.add_argument('--dataset_dir', type=str, required=True)
     parser_inference_validation.add_argument('--workspace', type=str, required=True)
     parser_inference_validation.add_argument('--data_type', type=str, required=True)
-    parser_inference_validation.add_argument('--model_name', type=str, required=True)
+    parser_inference_validation.add_argument('--model_type', type=str, required=True)
     parser_inference_validation.add_argument('--loss_type', type=str, required=True)
     parser_inference_validation.add_argument('--iteration', type=int, required=True)
     parser_inference_validation.add_argument('--batch_size', type=int, required=True)
