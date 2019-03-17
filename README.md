@@ -13,7 +13,7 @@ The statistic of the data is shown below:
 
 An example of log mel spectrogram and strongly labelled onset and offset events of an audio recording 'Y-0CamVQdP_Y_0.000_6.000.wav' from validation set is shown below:
 
-<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png" width="800">
+<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_ref.png" width="800">
 
 ## Run the code
 
@@ -102,7 +102,7 @@ The mean average precision (mAP) on validation set is shown below:
 
 **Visualization of prediction**
 
-<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_ref.png" width="800">
+<img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png" width="800">
 
 ## Summary
 This codebase provides a convolutional neural network (CNN) for DCASE 2019 challenge Task 4 Sound event detection in domestic environments. 
