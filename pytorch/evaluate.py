@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 from sklearn import metrics
 import sed_eval
 
-from utilities import get_filename, read_csv_file_for_sed_eval_tool
+from utilities import get_filename, read_csv_file_for_sed_eval_tool, inverse_scale
 from pytorch_utils import forward
 from vad import activity_detection
 import config
 
 
 class Evaluator(object):
-    def __init__(self, model, data_generator, cuda=True):
+    def __init__(self, model, data_generator, cuda=True, verbose=False):
         '''Evaluator to write out submission and evaluate performance. 
         
         Args:
@@ -27,11 +27,15 @@ class Evaluator(object):
         self.model = model
         self.data_generator = data_generator
         self.cuda = cuda
+        self.verbose = verbose
         
         self.frames_per_second = config.frames_per_second
         self.labels = config.labels
         
-        # Hyper-parameters for predicting events from framewise predictions. 
+        # Hyper-parameters for predicting events from framewise predictions
+        self.audio_tagging_thres = 0.5
+        self.sed_high_thres = 0.9
+        self.sed_low_thres = 0.5
         self.n_smooth = self.frames_per_second // 4
         self.n_salt = self.frames_per_second // 4
 
@@ -56,6 +60,7 @@ class Evaluator(object):
             cuda=self.cuda, 
             return_target=True)
             
+        # Evaluate audio tagging
         if 'weak_target' in output_dict:
             weak_target = output_dict['weak_target']
             clipwise_output = output_dict['clipwise_output']
@@ -66,6 +71,7 @@ class Evaluator(object):
             logging.info('{} statistics:'.format(data_type))       
             logging.info('    Audio tagging mAP: {:.3f}'.format(mAP))
             
+        # Write out submission file and evaluate SED with official tools
         if 'strong_target' in output_dict:
             audio_names = output_dict['audio_name']
             clipwise_output = output_dict['clipwise_output']
@@ -74,15 +80,16 @@ class Evaluator(object):
             (audios_num, frames_num, classes_num) = framewise_output.shape
             
             f = open(submission_path, 'w')
-            f.write('{}\t{}\t{}\t{}\n'.format('filename', 'onset', 'offset', 'event_label'))
+            f.write('{}\t{}\t{}\t{}\n'.format(
+                'filename', 'onset', 'offset', 'event_label'))
             
             for n in range(audios_num):
                 for k in range(classes_num):
-                    if clipwise_output[n, k] > 0.5:
+                    if clipwise_output[n, k] > self.audio_tagging_thres:
                         bgn_fin_pairs = activity_detection(
                             x=output_dict['framewise_output'][n, :, k], 
-                            thres=0.9, 
-                            low_thres=0.5, 
+                            thres=self.sed_high_thres, 
+                            low_thres=self.sed_low_thres, 
                             n_smooth=self.n_smooth, 
                             n_salt=self.n_salt)
                         
@@ -134,7 +141,10 @@ class Evaluator(object):
             logging.info('    Segment based, classwise F score: {:.3f}, ER: {:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(
                 segment_metrics['f_measure']['f_measure'], segment_metrics['error_rate']['error_rate'], 
                 segment_metrics['error_rate']['deletion_rate'], segment_metrics['error_rate']['insertion_rate']))
-        
+                
+            if self.verbose:
+                logging.info(event_based_metric)
+                logging.info(segment_based_metric)        
             
     def visualize(self, data_type):
         '''Visualize logmel spectrogram, reference and prediction. 
@@ -171,11 +181,11 @@ class Evaluator(object):
             event_prediction = np.zeros((frames_num, classes_num))
                 
             for k in range(classes_num):
-                if output_dict['clipwise_output'][n, k] > 0.5:
+                if output_dict['clipwise_output'][n, k] > self.audio_tagging_thres:
                     bgn_fin_pairs = activity_detection(
                         x=output_dict['framewise_output'][n, :, k], 
-                        thres=0.9, 
-                        low_thres=0.5, 
+                        thres=self.sed_high_thres, 
+                        low_thres=self.sed_low_thres, 
                         n_smooth=self.n_smooth, 
                         n_salt=self.n_salt)
                     
@@ -183,7 +193,10 @@ class Evaluator(object):
                         event_prediction[pair[0] : pair[1], k] = 1
             
             fig, axs = plt.subplots(4, 1, figsize=(10, 8))
-            axs[0].matshow(output_dict['feature'][n].T, origin='lower', aspect='auto', cmap='jet')
+            logmel = inverse_scale(output_dict['feature'][n], 
+                self.data_generator.scalar['mean'], 
+                self.data_generator.scalar['std'])
+            axs[0].matshow(logmel.T, origin='lower', aspect='auto', cmap='jet')
             if 'strong_target' in output_dict.keys():
                 axs[1].matshow(output_dict['strong_target'][n].T, origin='lower', aspect='auto', cmap='jet')
             masked_framewise_output = output_dict['framewise_output'][n] * output_dict['clipwise_output'][n]
