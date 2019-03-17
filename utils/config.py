@@ -6,7 +6,8 @@ fmin = 50       # Hz
 fmax = 14000    # Hz
 
 frames_per_second = sample_rate // hop_size
-audio_duration = 10     # Audio recordings in DCASE2019 Task3 are all approximately 10 seconds
+audio_duration = 10     # Audio recordings in DCASE2019 Task4 are all 
+                        # approximately 10 seconds
 frames_num = frames_per_second * audio_duration
 total_samples = sample_rate * audio_duration
 
