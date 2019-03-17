@@ -112,6 +112,10 @@ def scale(x, mean, std):
     return (x - mean) / std
     
     
+def inverse_scale(x, mean, std):
+    return x * std + mean
+    
+    
 def read_metadata(metadata_path):
     '''Read metadata csv file
     
