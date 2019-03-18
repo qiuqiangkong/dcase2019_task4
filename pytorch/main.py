@@ -90,7 +90,7 @@ def train(args):
         
     checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
+        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
     create_folder(checkpoints_dir)
     
     temp_submission_path = os.path.join(workspace, '_temp', 'submissions', filename, 
@@ -276,7 +276,8 @@ def inference_validation(args):
         
     checkoutpoint_path = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), '{}_iterations.pth'.format(iteration))
+        model_type, '{}'.format(train_relative_name), 
+        'loss_type={}'.format(loss_type), '{}_iterations.pth'.format(iteration))
 
     submission_path = os.path.join(workspace, 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
