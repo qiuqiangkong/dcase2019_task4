@@ -102,15 +102,15 @@ The mean average precision (mAP) on validation set is shown below:
 
 **Train with real data and weak target:**
 
-<img src="appendixes/real_weak_target.png" width="800">
+<img src="appendixes/real_weak_target.png">
 
 **Train with synthetic data and weak target:**
 
-<img src="appendixes/synthetic_weak_target.png" width="800">
+<img src="appendixes/synthetic_weak_target.png">
 
 **Train with synthetic data and strong target**
 
-<img src="appendixes/synthetic_strong_target.png" width="800">
+<img src="appendixes/synthetic_strong_target.png">
 
 **Visualization of prediction**
 
