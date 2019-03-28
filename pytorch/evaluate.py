@@ -7,6 +7,8 @@ import time
 import logging
 import matplotlib.pyplot as plt
 from sklearn import metrics
+import datetime
+import _pickle as cPickle
 import sed_eval
 
 from utilities import get_filename, read_csv_file_for_sed_eval_tool, inverse_scale
@@ -64,12 +66,15 @@ class Evaluator(object):
         if 'weak_target' in output_dict:
             weak_target = output_dict['weak_target']
             clipwise_output = output_dict['clipwise_output']
-            ap_array = metrics.average_precision_score(
+            average_precision = metrics.average_precision_score(
                 weak_target, clipwise_output, average=None)
-            mAP = np.mean(ap_array)
+            mAP = np.mean(average_precision)
             
             logging.info('{} statistics:'.format(data_type))       
             logging.info('    Audio tagging mAP: {:.3f}'.format(mAP))
+            
+        statistics = {}
+        statistics['average_precision'] = average_precision
             
         # Write out submission file and evaluate SED with official tools
         if 'strong_target' in output_dict:
@@ -132,19 +137,39 @@ class Evaluator(object):
                 event_based_metric.evaluate(ref_list, pred_list)
                 segment_based_metric.evaluate(ref_list, pred_list)
                     
+            # Event based metrics
             event_metrics = event_based_metric.results_class_wise_average_metrics()
+            f_measure = event_metrics['f_measure']['f_measure']
+            error_rate = event_metrics['error_rate']['error_rate']
+            deletion_rate = event_metrics['error_rate']['deletion_rate']
+            insertion_rate = event_metrics['error_rate']['insertion_rate']
+            
+            statistics['event_metrics'] = {'f_measure': f_measure, 
+                'error_rate': error_rate, 'deletion_rate': deletion_rate, 
+                'insertion_rate': insertion_rate}
+            
             logging.info('    Event-based, classwise F score: {:.3f}, ER: {:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(
-                event_metrics['f_measure']['f_measure'], event_metrics['error_rate']['error_rate'], 
-                event_metrics['error_rate']['deletion_rate'], event_metrics['error_rate']['insertion_rate']))
+                f_measure, error_rate, deletion_rate, insertion_rate))
 
+            # Segment based metrics
             segment_metrics = segment_based_metric.results_class_wise_average_metrics()
+            f_measure = segment_metrics['f_measure']['f_measure']
+            error_rate = segment_metrics['error_rate']['error_rate']
+            deletion_rate = segment_metrics['error_rate']['deletion_rate']
+            insertion_rate = segment_metrics['error_rate']['insertion_rate']
+
+            statistics['segment_metrics'] = {'f_measure': f_measure, 
+                'error_rate': error_rate, 'deletion_rate': deletion_rate, 
+                'insertion_rate': insertion_rate}
+            
             logging.info('    Segment based, classwise F score: {:.3f}, ER: {:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(
-                segment_metrics['f_measure']['f_measure'], segment_metrics['error_rate']['error_rate'], 
-                segment_metrics['error_rate']['deletion_rate'], segment_metrics['error_rate']['insertion_rate']))
+                f_measure, error_rate, deletion_rate, insertion_rate))
                 
             if self.verbose:
                 logging.info(event_based_metric)
-                logging.info(segment_based_metric)        
+                logging.info(segment_based_metric)
+                
+            return statistics
             
     def visualize(self, data_type):
         '''Visualize logmel spectrogram, reference and prediction. 
@@ -222,4 +247,22 @@ class Evaluator(object):
             
             fig.tight_layout()
             plt.show()
+            
+            
+class StatisticsContainer(object):
+    def __init__(self, statistics_path):
+        self.statistics_path = statistics_path
+
+        self.backup_statistics_path = '{}_{}.pickle'.format(
+            os.path.splitext(self.statistics_path)[0], datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+
+        self.statistics_list = []
+
+    def append_and_dump(self, iteration, statistics):
+        statistics['iteration'] = iteration
+        self.statistics_list.append(statistics)
+
+        cPickle.dump(self.statistics_list, open(self.statistics_path, 'wb'))
+        cPickle.dump(self.statistics_list, open(self.backup_statistics_path, 'wb'))
+        logging.info('    Dump statistics to {}'.format(self.statistics_path))
             

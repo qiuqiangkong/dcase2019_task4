@@ -7,7 +7,7 @@ WORKSPACE='/vol/vssp/msos/qk/workspaces/dcase2019_task4'
 
 # Hyper-parameters
 GPU_ID=1
-MODEL_TYPE='Cnn_9layers'
+MODEL_TYPE='Cnn_9layers_AvgPooling'
 BATCH_SIZE=32
 
 # Calculate feature
@@ -33,3 +33,8 @@ CUDA_VISIBLE_DEVICES=1 python pytorch/main.py inference_validation --dataset_dir
 CUDA_VISIBLE_DEVICES=1 python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
 
 CUDA_VISIBLE_DEVICES=1 python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
+
+# Plot
+python utils/plot_results.py --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type=train_weak --loss_type=clipwise_binary_crossentropy
+
+############ END ############

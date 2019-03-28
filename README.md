@@ -100,6 +100,18 @@ The mean average precision (mAP) on validation set is shown below:
 |       Synthetic audio with framewise loss       |       49.9%       |                 11.6%                 |                 40.8%                 |
 
 
+**Train with real data and weak target:**
+
+<img src="appendixes/real_weak_target.png" width="800">
+
+**Train with synthetic data and weak target:**
+
+<img src="appendixes/synthetic_weak_target.png" width="800">
+
+**Train with synthetic data and strong target**
+
+<img src="appendixes/synthetic_strong_target.png" width="800">
+
 **Visualization of prediction**
 
 <img src="appendixes/Y-0CamVQdP_Y_0.000_6.000_pred.png" width="800">

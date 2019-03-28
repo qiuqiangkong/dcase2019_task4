@@ -16,9 +16,9 @@ import torch.optim as optim
 from utilities import (create_folder, get_filename, 
     get_relative_path_no_extension, create_logging, load_scalar)
 from data_generator import DataGenerator
-from models import Cnn_9layers
+from models import Cnn_5layers_AvgPooling, Cnn_9layers_AvgPooling, Cnn_9layers_MaxPooling, Cnn_13layers_AvgPooling
 from losses import clipwise_binary_crossentropy, framewise_binary_crossentropy
-from evaluate import Evaluator
+from evaluate import Evaluator, StatisticsContainer
 from pytorch_utils import move_data_to_gpu
 import config
 
@@ -30,7 +30,7 @@ def train(args):
       dataset_dir: string, directory of dataset
       workspace: string, directory of workspace
       data_type: 'train_weak' | 'train_synthetic'
-      model_type: string, e.g. 'Cnn_9layers'
+      model_type: string, e.g. 'Cnn_9layers_AvgPooling'
       loss_type: string, e.g. 'clipwise_binary_crossentropy'
       batch_size: int
       cuda: bool
@@ -95,13 +95,19 @@ def train(args):
     
     temp_submission_path = os.path.join(workspace, '_temp', 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
+        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
         '_temp_submission.csv')
     create_folder(os.path.dirname(temp_submission_path))
+    
+    validate_statistics_path = os.path.join(workspace, 'statistics', filename, 
+        '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
+        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
+        'validate_statistics.pickle')
+    create_folder(os.path.dirname(validate_statistics_path))
 
     logs_dir = os.path.join(args.workspace, 'logs', filename, args.mode, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
+        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
     create_logging(logs_dir, filemode='w')
     logging.info(args)
         
@@ -134,6 +140,9 @@ def train(args):
         data_generator=data_generator, 
         cuda=cuda, 
         verbose=False)
+        
+    # Statistics
+    validate_statistics_container = StatisticsContainer(validate_statistics_path)
     
     train_bgn_time = time.time()
     iteration = 0
@@ -149,17 +158,20 @@ def train(args):
 
             train_fin_time = time.time()
 
-            evaluator.evaluate(
+            train_statistics = evaluator.evaluate(
                 data_type='train', 
                 metadata_path=train_metadata_path, 
                 submission_path=temp_submission_path, 
                 max_iteration=max_iteration)
             
-            evaluator.evaluate(
+            validate_statistics = evaluator.evaluate(
                 data_type='validate', 
                 metadata_path=validate_metadata_path, 
                 submission_path=temp_submission_path, 
                 max_iteration=max_iteration)
+                
+            validate_statistics_container.append_and_dump(
+                iteration, validate_statistics)
 
             train_time = train_fin_time - train_bgn_time
             validate_time = time.time() - train_fin_time
