@@ -11,9 +11,9 @@ import datetime
 import _pickle as cPickle
 import sed_eval
 
-from utilities import get_filename, read_csv_file_for_sed_eval_tool, inverse_scale
+from utilities import (get_filename, read_csv_file_for_sed_eval_tool, 
+    inverse_scale, write_submission)
 from pytorch_utils import forward
-from vad import activity_detection
 import config
 
 
@@ -25,6 +25,7 @@ class Evaluator(object):
           model: object
           data_generator: object
           cuda: bool
+          verbose: bool
         '''
         self.model = model
         self.data_generator = data_generator
@@ -35,11 +36,12 @@ class Evaluator(object):
         self.labels = config.labels
         
         # Hyper-parameters for predicting events from framewise predictions
-        self.audio_tagging_thres = 0.5
-        self.sed_high_thres = 0.9
-        self.sed_low_thres = 0.5
-        self.n_smooth = self.frames_per_second // 4
-        self.n_salt = self.frames_per_second // 4
+        self.sed_params_dict = {
+            'audio_tagging_threshold': 0.5, 
+            'sed_high_threshold': 0.9, 
+            'sed_low_threshold': 0.5, 
+            'n_smooth': self.frames_per_second // 4, 
+            'n_salt': self.frames_per_second // 4}
 
     def evaluate(self, data_type, metadata_path, submission_path, 
         max_iteration=None):
@@ -47,9 +49,10 @@ class Evaluator(object):
         
         Args: 
           data_type: 'train' | 'validate'
-          metadata_path: string
-          submission_path: string
-          max_iteration: None | int, maximum iteration to run to speed up evaluation
+          metadata_path: string, path of reference csv
+          submission_path: string, path to write out submission
+          max_iteration: None | int, maximum iteration to run to speed up 
+              evaluation
         '''
         generate_func = self.data_generator.generate_validate(
             data_type=data_type, 
@@ -75,42 +78,16 @@ class Evaluator(object):
             
         statistics = {}
         statistics['average_precision'] = average_precision
-            
-        # Write out submission file and evaluate SED with official tools
+        
         if 'strong_target' in output_dict:
-            audio_names = output_dict['audio_name']
-            clipwise_output = output_dict['clipwise_output']
-            framewise_output = output_dict['framewise_output']
-            
-            (audios_num, frames_num, classes_num) = framewise_output.shape
-            
-            f = open(submission_path, 'w')
-            f.write('{}\t{}\t{}\t{}\n'.format(
-                'filename', 'onset', 'offset', 'event_label'))
-            
-            for n in range(audios_num):
-                for k in range(classes_num):
-                    if clipwise_output[n, k] > self.audio_tagging_thres:
-                        bgn_fin_pairs = activity_detection(
-                            x=output_dict['framewise_output'][n, :, k], 
-                            thres=self.sed_high_thres, 
-                            low_thres=self.sed_low_thres, 
-                            n_smooth=self.n_smooth, 
-                            n_salt=self.n_salt)
-                        
-                        for pair in bgn_fin_pairs:
-                            bgn_time = pair[0] / float(self.frames_per_second)
-                            fin_time = pair[1] / float(self.frames_per_second)
-                            f.write('{}\t{}\t{}\t{}\n'.format(
-                                audio_names[n], bgn_time, fin_time, self.labels[k]))
-            f.close()
-                        
-            logging.info('    Write submission file to {}'.format(submission_path))
-            
+            # Write out submission file
+            write_submission(output_dict, self.sed_params_dict, submission_path)
+
+            # Evaluate SED with official tools
             reference_dict = read_csv_file_for_sed_eval_tool(metadata_path)
             predict_dict = read_csv_file_for_sed_eval_tool(submission_path)
 
-            # Event based metrics
+            # Event & segment based metrics
             event_based_metric = sed_eval.sound_event.EventBasedMetrics(
                 event_label_list=config.labels, 
                 evaluate_onset=True,
@@ -118,12 +95,11 @@ class Evaluator(object):
                 t_collar=0.200,
                 percentage_of_length=0.2)
             
-            # Segment based metrics
             segment_based_metric = sed_eval.sound_event.SegmentBasedMetrics(
                 event_label_list=config.labels, 
                 time_resolution=0.2)
             
-            for audio_name in audio_names:
+            for audio_name in output_dict['audio_name']:
                 if audio_name in reference_dict.keys():
                     ref_list = reference_dict[audio_name]
                 else:
@@ -136,8 +112,7 @@ class Evaluator(object):
                     
                 event_based_metric.evaluate(ref_list, pred_list)
                 segment_based_metric.evaluate(ref_list, pred_list)
-                    
-            # Event based metrics
+            
             event_metrics = event_based_metric.results_class_wise_average_metrics()
             f_measure = event_metrics['f_measure']['f_measure']
             error_rate = event_metrics['error_rate']['error_rate']
@@ -148,10 +123,10 @@ class Evaluator(object):
                 'error_rate': error_rate, 'deletion_rate': deletion_rate, 
                 'insertion_rate': insertion_rate}
             
-            logging.info('    Event-based, classwise F score: {:.3f}, ER: {:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(
-                f_measure, error_rate, deletion_rate, insertion_rate))
-
-            # Segment based metrics
+            logging.info('    Event-based, classwise F score: {:.3f}, ER: '
+                '{:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(f_measure, 
+                error_rate, deletion_rate, insertion_rate))
+                    
             segment_metrics = segment_based_metric.results_class_wise_average_metrics()
             f_measure = segment_metrics['f_measure']['f_measure']
             error_rate = segment_metrics['error_rate']['error_rate']
@@ -162,8 +137,9 @@ class Evaluator(object):
                 'error_rate': error_rate, 'deletion_rate': deletion_rate, 
                 'insertion_rate': insertion_rate}
             
-            logging.info('    Segment based, classwise F score: {:.3f}, ER: {:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(
-                f_measure, error_rate, deletion_rate, insertion_rate))
+            logging.info('    Segment based, classwise F score: {:.3f}, ER: '
+                '{:.3f}, Del: {:.3f}, Ins: {:.3f}'.format(f_measure, 
+                error_rate, deletion_rate, insertion_rate))
                 
             if self.verbose:
                 logging.info(event_based_metric)
@@ -171,17 +147,20 @@ class Evaluator(object):
                 
             return statistics
             
-    def visualize(self, data_type):
+    def visualize(self, data_type, max_iteration=None):
         '''Visualize logmel spectrogram, reference and prediction. 
         
-        Args:
+        Args: 
           data_type: 'train' | 'validate'
+          max_iteration: None | int, maximum iteration to run to speed up 
+              evaluation
         '''
+        generate_func = self.data_generator.generate_validate(
+            data_type=data_type, 
+            max_iteration=max_iteration)
         
         mel_bins = config.mel_bins
         audio_duration = config.audio_duration
-        frames_num = config.frames_num
-        classes_num = config.classes_num
         labels = config.labels
         
         # Forward
@@ -196,9 +175,11 @@ class Evaluator(object):
             return_input=True, 
             return_target=True)
 
-        for n, audio_name in enumerate(output_dict['audio_name']):
+        (audios_num, frames_num, classes_num) = output_dict['framewise_output'].shape
+
+        for n in range(audios_num):
+            print('File: {}'.format(output_dict['audio_name'][n]))
             
-            print('File: {}'.format(audio_name))
             for k in range(classes_num):
                 print('{:<20}{:<8}{:.3f}'.format(labels[k], 
                     output_dict['weak_target'][n, k], output_dict['clipwise_output'][n, k]))
@@ -206,17 +187,20 @@ class Evaluator(object):
             event_prediction = np.zeros((frames_num, classes_num))
                 
             for k in range(classes_num):
-                if output_dict['clipwise_output'][n, k] > self.audio_tagging_thres:
+                if output_dict['clipwise_output'][n, k] \
+                    > self.sed_params_dict['sed_high_threshold']:
+                        
                     bgn_fin_pairs = activity_detection(
                         x=output_dict['framewise_output'][n, :, k], 
-                        thres=self.sed_high_thres, 
-                        low_thres=self.sed_low_thres, 
-                        n_smooth=self.n_smooth, 
-                        n_salt=self.n_salt)
+                        thres=self.sed_params_dict['sed_high_threshold'], 
+                        low_thres=self.sed_params_dict['sed_low_threshold'], 
+                        n_smooth=self.sed_params_dict['n_smooth'], 
+                        n_salt=self.sed_params_dict['n_salt'])
                     
                     for pair in bgn_fin_pairs:
                         event_prediction[pair[0] : pair[1], k] = 1
             
+            # Plot
             fig, axs = plt.subplots(4, 1, figsize=(10, 8))
             logmel = inverse_scale(output_dict['feature'][n], 
                 self.data_generator.scalar['mean'], 
@@ -251,14 +235,27 @@ class Evaluator(object):
             
 class StatisticsContainer(object):
     def __init__(self, statistics_path):
+        '''Container of statistics during training. 
+        
+        Args:
+          statistics_path: string, path to write out
+        '''
         self.statistics_path = statistics_path
 
         self.backup_statistics_path = '{}_{}.pickle'.format(
-            os.path.splitext(self.statistics_path)[0], datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+            os.path.splitext(self.statistics_path)[0], 
+                datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
         self.statistics_list = []
 
     def append_and_dump(self, iteration, statistics):
+        '''Append statistics to container and dump the container. 
+        
+        Args:
+          iteration: int
+          source: 'a' | 'b' | 'c', device
+          statistics: dict of statistics
+        '''
         statistics['iteration'] = iteration
         self.statistics_list.append(statistics)
 

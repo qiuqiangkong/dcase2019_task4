@@ -19,22 +19,30 @@ python utils/features.py calculate_feature_for_all_audio_files --dataset_dir=$DA
 # Calculate scalar
 python utils/features.py calculate_scalar --workspace=$WORKSPACE --data_type='train_weak'
 
-# ------ Train and validate on weak labelled data ------
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_weak' --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
 
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_weak' --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
+############ Train and validate on development dataset ############
+
+# ------ Train and validate on weak labelled data ------
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_weak' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
+
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_weak' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
 
 # ------ Train and validate on synthetic data using clipwise loss ------
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
 
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
 
 # ------ Train and validate on synthetic data using framewise loss ------
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
 
-CUDA_VISIBLE_DEVICES=1 python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py inference_validation --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_synthetic' --holdout_fold=1 --model_type=$MODEL_TYPE --loss_type='framewise_binary_crossentropy' --iteration=5000 --batch_size=$BATCH_SIZE --cuda
 
 # Plot
-python utils/plot_results.py --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type=train_weak --loss_type=clipwise_binary_crossentropy
+python utils/plot_results.py --workspace=$WORKSPACE --data_type=train_weak --loss_type=clipwise_binary_crossentropy
+
+
+############ Train on full development dataset without validation ############
+
+CUDA_VISIBLE_DEVICES=$GPU_ID python pytorch/main.py train --dataset_dir=$DATASET_DIR --workspace=$WORKSPACE --data_type='train_weak' --holdout_fold=none --model_type=$MODEL_TYPE --loss_type='clipwise_binary_crossentropy' --batch_size=$BATCH_SIZE --cuda
 
 ############ END ############

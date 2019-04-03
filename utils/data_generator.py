@@ -14,13 +14,15 @@ import config
 
 class DataGenerator(object):
     
-    def __init__(self, train_hdf5_path, validate_hdf5_path, scalar, 
-        batch_size, seed=1234):
+    def __init__(self, train_hdf5_path, validate_hdf5_path, holdout_fold, 
+        scalar, batch_size, seed=1234):
         '''Data generator for training and validation. 
         
         Args:
-          train_hdf5_path: string
-          validate_hdf5_path: string
+          train_hdf5_path: string, path of hdf5 file
+          validate_hdf5_path: string, path of hdf5 file
+          holdout_fold: '1' | 'none', set 1 for development and none for training 
+              on all data without validation.'
           scalar: object, containing mean and std value
           batch_size: int
           seed: int, random seed
@@ -34,92 +36,111 @@ class DataGenerator(object):
         
         # Load training data
         if train_hdf5_path:
-            train_dict = self.load_hdf5(train_hdf5_path)
-            self.train_audio_names = train_dict['audio_name']
-            self.train_features = train_dict['feature']
-            
-            if 'weak_target' in train_dict.keys():
-                self.train_weak_targets = train_dict['weak_target']
-                self.has_weak_target = True
-            else:
-                self.has_weak_target = False
-                
-            if 'strong_target' in train_dict.keys():
-                self.train_strong_targets = train_dict['strong_target']
-                self.has_strong_target = True
-            else:
-                self.has_strong_target = False
-                
-            self.train_index_array = np.arange(len(self.train_audio_names))
+            self.train_data_dict = self.load_hdf5(train_hdf5_path)            
             
         # Load validation data
-        validate_dict = self.load_hdf5(validate_hdf5_path)
-        self.validate_audio_names = validate_dict['audio_name']
-        self.validate_features = validate_dict['feature']
-        self.validate_weak_targets = validate_dict['weak_target']
-        self.validate_strong_targets = validate_dict['strong_target']
-        self.validate_index_array = np.arange(len(self.validate_audio_names))
+        self.validate_data_dict = self.load_hdf5(validate_hdf5_path)
+        
+        if holdout_fold == 'none':
+            self.train_data_dict, self.validate_data_dict = \
+                self.combine_train_validate_data(
+                    self.train_data_dict, self.validate_data_dict)
+        
+        self.train_audio_indexes = np.arange(
+            len(self.train_data_dict['audio_name']))
+            
+        self.validate_audio_indexes = np.arange(len(
+            self.validate_data_dict['audio_name']))        
         
         logging.info('Load data time: {:.3f} s'.format(time.time() - load_time))
         if train_hdf5_path:
-            logging.info('Training audio num: {}'.format(len(self.train_audio_names)))            
-        logging.info('Validation audio num: {}'.format(len(self.validate_audio_names)))
+            logging.info('Training audio num: {}'.format(len(self.train_audio_indexes)))            
+        logging.info('Validation audio num: {}'.format(len(self.validate_audio_indexes)))
+        
+        self.random_state.shuffle(self.train_audio_indexes)
+        self.pointer = 0
+        
         
     def load_hdf5(self, hdf5_path):
-        dict = {}
+        '''Load hdf5 file. 
         
-        with h5py.File(hdf5_path, 'r') as hf:
-            dict['audio_name'] = np.array([name.decode() for name in hf['audio_name'][:]])
+        Returns:
+          data_dict: {'audio_name': (audios_num), 
+                      'feature': (audios_num, frames_num, mel_bins), 
+                      (if exist) 'weak_target': (audios_num, classes_num), 
+                      (if exist) 'strong_target': (audios_num, frames_num, classes_num)}
+        '''
+        data_dict = {}
 
-            dict['feature'] = hf['feature'][:].astype(np.float32)
+        with h5py.File(hdf5_path, 'r') as hf:
+            data_dict['audio_name'] = np.array(
+                [name.decode() for name in hf['audio_name'][:]])
+                
+            data_dict['feature'] = hf['feature'][:].astype(np.float32)
             
             if 'weak_target' in hf.keys():
-                dict['weak_target'] = hf['weak_target'][:].astype(np.float32)
+                data_dict['weak_target'] = \
+                    hf['weak_target'][:].astype(np.float32)
                 
             if 'strong_target' in hf.keys():
-                dict['strong_target'] = hf['strong_target'][:].astype(np.float32)
+                data_dict['strong_target'] = \
+                    hf['strong_target'][:].astype(np.float32)
             
-        return dict
+        return data_dict
+        
+    def combine_train_validate_data(self, train_data_dict, validate_data_dict):
+        '''Combine train and validate data to for training on full data. 
+        '''
+        new_train_data_dict = {}
+        new_validate_data_dict = {}
+        
+        for key in train_data_dict.keys():
+            new_train_data_dict[key] = np.concatenate(
+                (train_data_dict[key], validate_data_dict[key]), axis=0)
+        
+            new_validate_data_dict[key] = []
+        
+        return new_train_data_dict, new_validate_data_dict
         
     def generate_train(self):
         '''Generate mini-batch data for training. 
         
         Returns:
-          batch_data_dict: dict containing audio_name, feature, weak_target 
-              and strong_target
+          batch_data_dict: e.g.:
+              {'audio_name': (batch_size), 
+               'feature': (batch_size, frames_num, mel_bins), 
+               (if exist) 'weak_target': (batch_size, classes_num), 
+               (if exist) 'strong_target': (batch_size, frames_num, classes_num)}
         '''
-        batch_size = self.batch_size
-        indexes = np.array(self.train_index_array)
-        self.random_state.shuffle(indexes)
-        pointer = 0
-
         while True:
 
             # Reset pointer
-            if pointer >= len(indexes):
-                pointer = 0
-                self.random_state.shuffle(indexes)
+            if self.pointer >= len(self.train_audio_indexes):
+                self.pointer = 0
+                self.random_state.shuffle(self.train_audio_indexes)
 
             # Get batch indexes
-            batch_indexes = indexes[pointer: pointer + batch_size]
-            pointer += batch_size
+            batch_indexes = self.train_audio_indexes[
+                self.pointer: self.pointer + self.batch_size]
+                
+            self.pointer += self.batch_size
 
             batch_data_dict = {}
 
-            batch_audio_name = self.train_audio_names[batch_indexes]
-            batch_data_dict['audio_name'] = batch_audio_name
+            batch_data_dict['audio_name'] = \
+                self.train_data_dict['audio_name'][batch_indexes]
             
-            batch_feature = self.train_features[batch_indexes]
+            batch_feature = self.train_data_dict['feature'][batch_indexes]
             batch_feature = self.transform(batch_feature)
             batch_data_dict['feature'] = batch_feature
             
-            if self.has_weak_target:
-                batch_weak_target = self.train_weak_targets[batch_indexes]
-                batch_data_dict['weak_target'] = batch_weak_target
+            if 'weak_target' in self.train_data_dict:
+                batch_data_dict['weak_target'] = \
+                    self.train_data_dict['weak_target'][batch_indexes]
             
-            if self.has_strong_target:
-                batch_strong_target = self.train_strong_targets[batch_indexes]
-                batch_data_dict['strong_target'] = batch_strong_target
+            if 'strong_target' in self.train_data_dict:
+                batch_data_dict['strong_target'] = \
+                    self.train_data_dict['strong_target'][batch_indexes]
             
             yield batch_data_dict
             
@@ -132,31 +153,22 @@ class DataGenerator(object):
               fast evaluation
         
         Returns:
-          dict containing audio_name, feature, weak_target 
-              and strong_target
+          batch_data_dict: e.g.:
+              {'audio_name': (batch_size), 
+               'feature': (batch_size, frames_num, mel_bins), 
+               (if exist) 'weak_target': (batch_size, classes_num), 
+               (if exist) 'strong_target': (batch_size, frames_num, classes_num)}
         '''
-        batch_size = self.batch_size
         
         if data_type == 'train':
-            audio_names = self.train_audio_names
-            features = self.train_features
-            
-            if self.has_weak_target:
-                weak_targets = self.train_weak_targets
-                
-            if self.has_strong_target:
-                strong_targets = self.train_strong_targets
-            
+            data_dict = self.train_data_dict            
         elif data_type == 'validate':
-            audio_names = self.validate_audio_names
-            features = self.validate_features            
-            weak_targets = self.validate_weak_targets                
-            strong_targets = self.validate_strong_targets
-        
+            data_dict = self.validate_data_dict
         else:
             raise Exception('Incorrect argument!')
             
-        audio_indexes = np.arange(len(audio_names))
+        audios_num = len(data_dict['audio_name'])
+        audio_indexes = np.arange(audios_num)
         iteration = 0
         pointer = 0
         
@@ -165,27 +177,32 @@ class DataGenerator(object):
                 break
 
             # Reset pointer
-            if pointer >= len(audio_indexes):
+            if pointer >= audios_num:
                 break
 
             # Get batch indexes
-            batch_audio_indexes = audio_indexes[pointer: pointer + batch_size]                
-            pointer += batch_size
+            batch_audio_indexes = audio_indexes[
+                pointer: pointer + self.batch_size]
+                
+            pointer += self.batch_size
             iteration += 1
 
             batch_data_dict = {}
 
-            batch_data_dict['audio_name'] = audio_names[batch_audio_indexes]
+            batch_data_dict['audio_name'] = \
+                data_dict['audio_name'][batch_audio_indexes]
             
-            batch_feature = features[batch_audio_indexes]
+            batch_feature = data_dict['feature'][batch_audio_indexes]
             batch_feature = self.transform(batch_feature)
             batch_data_dict['feature'] = batch_feature
             
-            if data_type == 'validate' or self.has_weak_target:
-                batch_data_dict['weak_target'] = weak_targets[batch_audio_indexes]
+            if 'weak_target' in data_dict:
+                batch_data_dict['weak_target'] = \
+                    data_dict['weak_target'][batch_audio_indexes]
                 
-            if data_type == 'validate' or self.has_strong_target:
-                batch_data_dict['strong_target'] = strong_targets[batch_audio_indexes]
+            if 'strong_target' in data_dict:
+                batch_data_dict['strong_target'] = \
+                    data_dict['strong_target'][batch_audio_indexes]
 
             yield batch_data_dict
             

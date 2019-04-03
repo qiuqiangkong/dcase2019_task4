@@ -10,6 +10,7 @@ from sklearn import metrics
 import logging
 import matplotlib.pyplot as plt
 
+from vad import activity_detection
 import config
 
 
@@ -117,22 +118,20 @@ def inverse_scale(x, mean, std):
     
     
 def read_metadata(metadata_path):
-    '''Read metadata csv file
+    '''Read metadata csv file. 
     
     Returns:
-      data_dict: {audio_name: {'weak_labels': [str, str], 
+      data_dict: {audio_name: {'weak_labels': [str, str, ...], 
                                'strong_labels': [{'event': str, 'onset': float, 'offset': float}, 
                                                  ...
                                                  ]}, 
                   ...
                   }
     '''
-    
     df = pd.read_csv(metadata_path, sep='\t')
 
     # Strongly labelled data
     if 'event_label' in df.keys():
-        
         event_array = df['event_label']
         onset_array = df['onset']
         offset_array = df['offset']
@@ -140,7 +139,6 @@ def read_metadata(metadata_path):
         data_dict = {}
         
         for n, audio_name in enumerate(df['filename']):
-
             if audio_name in data_dict:                
                 data = data_dict[audio_name]                
                 
@@ -189,6 +187,55 @@ def isnan(x):
         return True
     else:
         return False
+        
+        
+def write_submission(output_dict, sed_params_dict, submission_path):
+    '''Write output to submission file. 
+    
+    Args:
+      output_dict: {
+          'audio_name': (audios_num), 
+          'clipwise_output': (audios_num, classes_num), 
+          'framewise_output': (audios_num, frames_num, classes_num)}
+      sed_params_dict: {
+          'audio_tagging_threshold': float between 0 and 1, 
+          'sed_high_threshold': : float between 0 and 1, 
+          'sed_low_threshold': : float between 0 and 1, 
+          'n_smooth': int, silence between the same sound event shorter than 
+              this number will be filled with the sound event
+          'n_salt': int, sound event shorter than this number will be removed}
+      submission_path: string, path to write out submission
+    '''
+    (audios_num, frames_num, classes_num) = output_dict['framewise_output'].shape
+    frames_per_second = config.frames_per_second
+    labels = config.labels
+    
+    f = open(submission_path, 'w')
+    f.write('{}\t{}\t{}\t{}\n'.format(
+        'filename', 'onset', 'offset', 'event_label'))
+    
+    for n in range(audios_num):
+        for k in range(classes_num):
+            if output_dict['clipwise_output'][n, k] \
+                > sed_params_dict['sed_high_threshold']:
+                    
+                bgn_fin_pairs = activity_detection(
+                    x=output_dict['framewise_output'][n, :, k], 
+                    thres=sed_params_dict['sed_high_threshold'], 
+                    low_thres=sed_params_dict['sed_low_threshold'], 
+                    n_smooth=sed_params_dict['n_smooth'], 
+                    n_salt=sed_params_dict['n_salt'])
+                
+                for pair in bgn_fin_pairs:
+                    bgn_time = pair[0] / float(frames_per_second)
+                    fin_time = pair[1] / float(frames_per_second)
+                    f.write('{}\t{}\t{}\t{}\n'.format(
+                        output_dict['audio_name'][n], bgn_time, fin_time, 
+                        labels[k]))
+    f.close()
+                
+    logging.info('    Write submission file to {}'
+        ''.format(submission_path))
 
 
 def read_csv_file_for_sed_eval_tool(path):

@@ -30,8 +30,10 @@ def train(args):
       dataset_dir: string, directory of dataset
       workspace: string, directory of workspace
       data_type: 'train_weak' | 'train_synthetic'
+      holdout_fold: '1' | 'none', set 1 for development and none for training 
+          on all data without validation.'
       model_type: string, e.g. 'Cnn_9layers_AvgPooling'
-      loss_type: string, e.g. 'clipwise_binary_crossentropy'
+      loss_type: 'clipwise_binary_crossentropy' | 'framewise_binary_crossentropy'
       batch_size: int
       cuda: bool
       mini_data: bool, set True for debugging on a small part of data
@@ -41,6 +43,7 @@ def train(args):
     dataset_dir = args.dataset_dir
     workspace = args.workspace
     data_type = args.data_type
+    holdout_fold = args.holdout_fold
     model_type = args.model_type
     loss_type = args.loss_type
     batch_size = args.batch_size
@@ -60,9 +63,9 @@ def train(args):
     else:
         prefix = ''
         
-    if loss_type in ['clipwise_binary_crossentropy']:
+    if loss_type == 'clipwise_binary_crossentropy':
         strong_target_training = False
-    elif loss_type in ['framewise_binary_crossentropy']:
+    elif loss_type == 'framewise_binary_crossentropy':
         strong_target_training = True
     else:
         raise Exception('Incorrect argument!')
@@ -90,27 +93,34 @@ def train(args):
         
     checkpoints_dir = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type))
     create_folder(checkpoints_dir)
     
     temp_submission_path = os.path.join(workspace, '_temp', 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
-        '_temp_submission.csv')
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type), '_temp_submission.csv')
     create_folder(os.path.dirname(temp_submission_path))
     
     validate_statistics_path = os.path.join(workspace, 'statistics', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), 
-        'validate_statistics.pickle')
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type), 'validate_statistics.pickle')
     create_folder(os.path.dirname(validate_statistics_path))
 
     logs_dir = os.path.join(args.workspace, 'logs', filename, args.mode, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        model_type, '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type))
     create_logging(logs_dir, filemode='w')
     logging.info(args)
-        
+    
+    if cuda:
+        logging.info('Using GPU.')
+    else:
+        logging.info('Using CPU. Set --cuda flag to use GPU.')
+    
     # Load scalar
     scalar = load_scalar(scalar_path)
     
@@ -131,6 +141,7 @@ def train(args):
     data_generator = DataGenerator(
         train_hdf5_path=train_hdf5_path, 
         validate_hdf5_path=validate_hdf5_path, 
+        holdout_fold=holdout_fold, 
         scalar=scalar, 
         batch_size=batch_size)
     
@@ -152,7 +163,6 @@ def train(args):
         
         # Evaluate
         if iteration % 200 == 0:
-
             logging.info('------------------------------------')
             logging.info('Iteration: {}'.format(iteration))
 
@@ -164,14 +174,15 @@ def train(args):
                 submission_path=temp_submission_path, 
                 max_iteration=max_iteration)
             
-            validate_statistics = evaluator.evaluate(
-                data_type='validate', 
-                metadata_path=validate_metadata_path, 
-                submission_path=temp_submission_path, 
-                max_iteration=max_iteration)
+            if holdout_fold != 'none':
+                validate_statistics = evaluator.evaluate(
+                    data_type='validate', 
+                    metadata_path=validate_metadata_path, 
+                    submission_path=temp_submission_path, 
+                    max_iteration=max_iteration)
                 
-            validate_statistics_container.append_and_dump(
-                iteration, validate_statistics)
+                validate_statistics_container.append_and_dump(
+                    iteration, validate_statistics)
 
             train_time = train_fin_time - train_bgn_time
             validate_time = time.time() - train_fin_time
@@ -231,8 +242,9 @@ def inference_validation(args):
       dataset_dir: string, directory of dataset
       workspace: string, directory of workspace
       data_type: 'train_weak' | 'train_synthetic'
-      model_type: string, e.g. 'Cnn_9layers'
-      loss_type: string, e.g. 'clipwise_binary_crossentropy'
+      holdout_fold: '1'
+      model_type: string, e.g. 'Cnn_9layers_AvgPooling'
+      loss_type: 'clipwise_binary_crossentropy' | 'framewise_binary_crossentropy'
       batch_size: int
       cuda: bool
       visualize: bool
@@ -242,6 +254,7 @@ def inference_validation(args):
     dataset_dir = args.dataset_dir
     workspace = args.workspace
     data_type = args.data_type
+    holdout_fold = args.holdout_fold
     model_type = args.model_type
     loss_type = args.loss_type
     iteration = args.iteration
@@ -261,9 +274,9 @@ def inference_validation(args):
     else:
         prefix = ''
         
-    if loss_type in ['clipwise_binary_crossentropy']:
+    if loss_type == 'clipwise_binary_crossentropy':
         strong_target_training = False
-    elif loss_type in ['framewise_binary_crossentropy']:
+    elif loss_type == 'framewise_binary_crossentropy':
         strong_target_training = True
     else:
         raise Exception('Incorrect argument!')
@@ -288,17 +301,20 @@ def inference_validation(args):
         
     checkoutpoint_path = os.path.join(workspace, 'checkpoints', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        model_type, '{}'.format(train_relative_name), 
-        'loss_type={}'.format(loss_type), '{}_iterations.pth'.format(iteration))
-
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type), 
+        '{}_iterations.pth'.format(iteration))
+    
     submission_path = os.path.join(workspace, 'submissions', filename, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type), '{}_iterations'.format(iteration), 'validation_submission.csv')
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type), 'validation_submission.csv')
     create_folder(os.path.dirname(submission_path))
-
+    
     logs_dir = os.path.join(args.workspace, 'logs', filename, args.mode, 
         '{}logmel_{}frames_{}melbins'.format(prefix, frames_per_second, mel_bins), 
-        '{}'.format(train_relative_name), 'loss_type={}'.format(loss_type))
+        '{}'.format(train_relative_name), 'holdout_fold={}'.format(holdout_fold), 
+        model_type, 'loss_type={}'.format(loss_type))
     create_logging(logs_dir, filemode='w')
     logging.info(args)
         
@@ -318,6 +334,7 @@ def inference_validation(args):
     data_generator = DataGenerator(
         train_hdf5_path=train_hdf5_path, 
         validate_hdf5_path=validate_hdf5_path, 
+        holdout_fold=holdout_fold, 
         scalar=scalar, 
         batch_size=batch_size)
         
@@ -334,10 +351,6 @@ def inference_validation(args):
         submission_path=submission_path)
     
     if visualize:
-        '''
-        # Uncomment for visualize prediction on training data
-        evaluator.visualize(data_type='train')
-        '''
         evaluator.visualize(data_type='validate')
         
 
@@ -346,27 +359,28 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers(dest='mode')
 
     parser_train = subparsers.add_parser('train')
-    parser_train.add_argument('--dataset_dir', type=str, required=True)
-    parser_train.add_argument('--workspace', type=str, required=True)
-    parser_train.add_argument('--data_type', type=str, required=True, 
-        choices=['train_weak', 'train_synthetic'])
-    parser_train.add_argument('--model_type', type=str, required=True)
-    parser_train.add_argument('--loss_type', type=str, required=True)
+    parser_train.add_argument('--dataset_dir', type=str, required=True, help='Directory of dataset.')
+    parser_train.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
+    parser_train.add_argument('--data_type', type=str, choices=['train_weak', 'train_synthetic'], required=True)
+    parser_train.add_argument('--holdout_fold', type=str, choices=['1', 'none'], required=True, help='Set 1 for development and none for training on all data without validation.')
+    parser_train.add_argument('--model_type', type=str, required=True, help='E.g., Cnn_9layers_AvgPooling.')
+    parser_train.add_argument('--loss_type', type=str, choices=['clipwise_binary_crossentropy', 'framewise_binary_crossentropy'], required=True)
     parser_train.add_argument('--batch_size', type=int, required=True)
     parser_train.add_argument('--cuda', action='store_true', default=False)
-    parser_train.add_argument('--mini_data', action='store_true', default=False)
+    parser_train.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
     
     parser_inference_validation = subparsers.add_parser('inference_validation')
-    parser_inference_validation.add_argument('--dataset_dir', type=str, required=True)
-    parser_inference_validation.add_argument('--workspace', type=str, required=True)
-    parser_inference_validation.add_argument('--data_type', type=str, required=True)
-    parser_inference_validation.add_argument('--model_type', type=str, required=True)
-    parser_inference_validation.add_argument('--loss_type', type=str, required=True)
-    parser_inference_validation.add_argument('--iteration', type=int, required=True)
+    parser_inference_validation.add_argument('--dataset_dir', type=str, required=True, help='Directory of dataset.')
+    parser_inference_validation.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
+    parser_inference_validation.add_argument('--data_type', type=str, choices=['train_weak', 'train_synthetic'], required=True)
+    parser_inference_validation.add_argument('--model_type', type=str, required=True, help='E.g., Cnn_9layers_AvgPooling.')
+    parser_inference_validation.add_argument('--holdout_fold', type=str, choices=['1'], required=True)
+    parser_inference_validation.add_argument('--loss_type', type=str, choices=['clipwise_binary_crossentropy', 'framewise_binary_crossentropy'], required=True)
+    parser_inference_validation.add_argument('--iteration', type=int, required=True, help='This iteration of the trained model will be loaded.')
     parser_inference_validation.add_argument('--batch_size', type=int, required=True)
     parser_inference_validation.add_argument('--cuda', action='store_true', default=False)
-    parser_inference_validation.add_argument('--visualize', action='store_true', default=False)
-    parser_inference_validation.add_argument('--mini_data', action='store_true', default=False)
+    parser_inference_validation.add_argument('--visualize', action='store_true', default=False, help='Visualize log mel spectrogram of different sound classes.')
+    parser_inference_validation.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
     
     args = parser.parse_args()
     args.filename = get_filename(__file__)

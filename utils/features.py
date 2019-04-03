@@ -121,7 +121,8 @@ def events_to_target(events, frames_num, classes_num, frames_per_second, lb_to_i
 
  
 def calculate_feature_for_all_audio_files(args):
-    '''Calculate feature of audio files and write out features to a hdf5 file. 
+    '''Calculate feature of audio files and write out features to a single hdf5 
+    file. 
     
     Args:
       dataset_dir: string
@@ -326,17 +327,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     subparsers = parser.add_subparsers(dest='mode')
 
+    # Calculate feature for all audio files
     parser_logmel = subparsers.add_parser('calculate_feature_for_all_audio_files')
-    parser_logmel.add_argument('--dataset_dir', type=str, required=True)
-    parser_logmel.add_argument('--workspace', type=str, required=True)
+    parser_logmel.add_argument('--dataset_dir', type=str, required=True, help='Directory of dataset.')
+    parser_logmel.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
     parser_logmel.add_argument('--data_type', type=str, required=True, choices=['train_weak', 'train_unlabel_in_domain', 'train_synthetic', 'validation'])
-    parser_logmel.add_argument('--mini_data', action='store_true', default=False)
+    parser_logmel.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
 
+    # Calculate scalar
     parser_scalar = subparsers.add_parser('calculate_scalar')
-    parser_scalar.add_argument('--workspace', type=str, required=True)
-    parser_scalar.add_argument('--data_type', type=str, required=True, choices=['train_weak'])
-    parser_scalar.add_argument('--mini_data', action='store_true', default=False)
+    parser_scalar.add_argument('--workspace', type=str, required=True, help='Directory of your workspace.')
+    parser_scalar.add_argument('--data_type', type=str, required=True, choices=['train_weak'], help='Scalar is calculated on train_weak data.')
+    parser_scalar.add_argument('--mini_data', action='store_true', default=False, help='Set True for debugging on a small part of data.')
     
+    # Parse arguments
     args = parser.parse_args()
     
     if args.mode == 'calculate_feature_for_all_audio_files':

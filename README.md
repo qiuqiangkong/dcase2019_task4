@@ -90,15 +90,21 @@ Model saved to /vol/vssp/msos/qk/workspaces/dcase2019_task4/models/main/logmel_6
 
 ## Results
 
-The mean average precision (mAP) on validation set is shown below:
+**Results of training on real weakly labelled data, synthetic weakly labelled data and synthetic strongly labelled data**
 
-|                                                 | Audio tagging mAP |  Event based F score (macro average)  | Segment based F score (micro average) |
-|:-----------------------------------------------:|:-----------------:|:-------------------------------------:|:-------------------------------------:|
-|               *Official result*                 |         -         |                *23.5%*                |                *54.7%*                |
-|      Weak labeled audio with clipwise loss      |       79.1%       |                 23.1%                 |                 63.1%                 |
-|        Synthetic audio with clipwise loss       |       53.1%       |                 10.6%                 |                 37.7%                 |
-|       Synthetic audio with framewise loss       |       49.9%       |                 11.6%                 |                 40.8%                 |
+The results in the following table is based on the CNN9-I model which is a 9-layer CNN model with 2x2 average pooling. 
 
+<img src="appendixes/data_type_results.png">
+
+The table shows that training with real weakly lablled data achieves better results than training with synthetic data. 
+
+**Results of different CNN architectures**
+
+The baseline model is from the official website [2]. 
+
+<img src="appendixes/cnns_results.png">
+
+The table shows that the CNN9-II which is 9-layer CNN with 2x2 max pooling performs better than other models. 
 
 **Train with real data and weak target:**
 
@@ -120,14 +126,13 @@ The mean average precision (mAP) on validation set is shown below:
 This codebase provides a convolutional neural network (CNN) for DCASE 2019 challenge Task 4 Sound event detection in domestic environments. 
 
 ## Citation
-To appear. 
+[1] To appear. 
 
 ## FAQ
 If you met running out of GPU memory error, then try to reduce batch_size. 
 
-## License
-MIT license. 
-
 ## External link
 
-The official baseline system is here https://github.com/turpaultn/DCASE2019_task4/tree/public/baseline/models
+[2] http://dcase.community/challenge2019/task-sound-event-detection-in-domestic-environments
+
+[3] https://github.com/turpaultn/DCASE2019_task4/tree/public/baseline/models
