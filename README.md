@@ -94,7 +94,7 @@ Model saved to /vol/vssp/msos/qk/workspaces/dcase2019_task4/models/main/logmel_6
 
 The results in the following table is based on the CNN9-I model which is a 9-layer CNN model with 2x2 average pooling. 
 
-<img src="appendixes/data_type_results.png">
+<img src="appendixes/data_type_results.png" width="600">
 
 The table shows that training with real weakly lablled data achieves better results than training with synthetic data. 
 
@@ -102,7 +102,7 @@ The table shows that training with real weakly lablled data achieves better resu
 
 The baseline model is from the official website [2]. 
 
-<img src="appendixes/cnns_results.png">
+<img src="appendixes/cnns_results.png" width="600">
 
 The table shows that the CNN9-II which is 9-layer CNN with 2x2 max pooling performs better than other models. 
 
