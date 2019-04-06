@@ -253,7 +253,6 @@ class StatisticsContainer(object):
         
         Args:
           iteration: int
-          source: 'a' | 'b' | 'c', device
           statistics: dict of statistics
         '''
         statistics['iteration'] = iteration
